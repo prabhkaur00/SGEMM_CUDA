@@ -46,9 +46,16 @@ fi
 
 NCU_CMD=("$NCU_PATH")
 if command -v sudo >/dev/null 2>&1; then
-  # sudo drops the caller's PATH, so resolve ncu's absolute path first
-  # and preserve the environment (needed for e.g. CUDA_VISIBLE_DEVICES).
-  NCU_CMD=(sudo --preserve-env env "PATH=$PATH" "$NCU_PATH")
+  # sudo drops the caller's PATH/LD_LIBRARY_PATH, so resolve ncu's absolute
+  # path first and pass the environment through explicitly. Without
+  # LD_LIBRARY_PATH, root's dynamic linker may fail to find libcuda.so.1
+  # even though the calling user's shell can see it fine.
+  if [ -e /usr/lib64-nvidia/libcuda.so.1 ]; then
+    LIBCUDA_DIR="/usr/lib64-nvidia"
+  else
+    LIBCUDA_DIR="$(find / -xdev -name 'libcuda.so.1' -not -path '*/compat/*' -not -path '*/.julia/*' -exec dirname {} \; 2>/dev/null | head -n1)"
+  fi
+  NCU_CMD=(sudo --preserve-env env "PATH=$PATH" "LD_LIBRARY_PATH=${LIBCUDA_DIR:-}:${LD_LIBRARY_PATH:-}" "$NCU_PATH")
 fi
 
 echo "Using ncu binary: $NCU_PATH"
