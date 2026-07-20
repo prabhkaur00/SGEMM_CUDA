@@ -17,8 +17,11 @@
 #   privileges); this script uses `sudo ncu` automatically if available.
 # - Kernel 0 is cuBLAS (nothing to profile); this script does 1-12.
 # - Override which kernels to run: KERNELS="1 5 10" bash scripts/colab_profile_all_kernels.sh
-# - Override the ncu set (default "basic", minimal: throughput/occupancy/
-#   duration/warp-stalls, ~2-5 passes): NCU_SET=full bash ... for everything.
+# - Override the ncu set (default "detailed", ~15-25 passes: adds Roofline,
+#   Compute/Memory Workload Analysis, Scheduler Stats, Warp State Stats,
+#   Source Counters on top of "basic"): NCU_SET=basic for the fast/minimal
+#   set (~2-5 passes, no roofline), or NCU_SET=full for everything
+#   (~50 passes; noticeably slower, especially on kernel 1 at size 4096).
 # - sgemm.cu runs each kernel across 6 matrix sizes: 128, 256, 512, 1024,
 #   2048, 4096 (index 0-5). For EACH size it launches: 1 correctness-check
 #   launch of your kernel (+ cuBLAS launches) THEN a timing loop of
@@ -43,7 +46,7 @@ cd "$(dirname "$0")/.."
 
 BUILD_DIR="build"
 OUT_DIR="benchmark_results/ncu"
-NCU_SET="${NCU_SET:-basic}"
+NCU_SET="${NCU_SET:-detailed}"
 KERNELS="${KERNELS:-1 2 3 4 5 6 7 8}"
 # 1 correctness-check launch + repeat_times(50) timing launches, per size
 # (sgemm.cu:92,100-136). Update this if repeat_times changes upstream.
