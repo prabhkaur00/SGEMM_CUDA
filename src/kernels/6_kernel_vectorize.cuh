@@ -44,6 +44,17 @@ __global__ void sgemmVectorize(int M, int N, int K, float alpha, float *A,
   for (uint bkIdx = 0; bkIdx < K; bkIdx += BK) {
     // populate the SMEM caches
     // transpose A while loading it
+
+    // BEFORE
+    // for (uint i = 0; i < BM; i += strideA) {
+    //   As[(innerRowA + i) * BK + innerColA] =
+    //       A[(innerRowA + i) * K + innerColA];
+    // }
+    // for (uint i = 0; i < BK; i += strideB) {
+    //   Bs[(innerRowB + i) * BN + innerColB] =
+    //       B[(innerRowB + i) * N + innerColB];
+    // }
+
     float4 tmp =
         reinterpret_cast<float4 *>(&A[innerRowA * K + innerColA * 4])[0];
     As[(innerColA * 4 + 0) * BM + innerRowA] = tmp.x;

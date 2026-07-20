@@ -47,7 +47,7 @@ __global__ void sgemm_shared_mem_block(int M, int N, int K, float alpha,
     for (int dotIdx = 0; dotIdx < BLOCKSIZE; ++dotIdx) {
       tmp += As[threadRow * BLOCKSIZE + dotIdx] *
              Bs[dotIdx * BLOCKSIZE + threadCol];
-    }
+    } 
     // need to sync again at the end, to avoid faster threads
     // fetching the next block into the cache before slower threads are done
     __syncthreads();

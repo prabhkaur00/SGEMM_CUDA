@@ -58,14 +58,14 @@ __global__ void __launch_bounds__((BM * BN) / (TM * TN), 1)
   // outer-most loop over block tiles
   for (uint bkIdx = 0; bkIdx < K; bkIdx += BK) {
     // populate the SMEM caches
-    for (uint loadOffset = 0; loadOffset < BM; loadOffset += strideA) {
-      As[(innerRowA + loadOffset) * BK + innerColA] =
-          A[(innerRowA + loadOffset) * K + innerColA];
+    for (uint i = 0; i < BM; i += strideA) {
+      As[(innerRowA + i) * BK + innerColA] =
+          A[(innerRowA + i) * K + innerColA];
     }
-    for (uint loadOffset = 0; loadOffset < BK; loadOffset += strideB) {
-      Bs[(innerRowB + loadOffset) * BN + innerColB] =
-          B[(innerRowB + loadOffset) * N + innerColB];
-    }
+    for (uint i = 0; i < BK; i += strideB) {
+      Bs[(innerRowB + i) * BN + innerColB] =
+          B[(innerRowB + i) * N + innerColB];
+    } 
     __syncthreads();
 
     // advance blocktile
