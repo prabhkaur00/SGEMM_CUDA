@@ -20,16 +20,22 @@
 # - Override the ncu set (default "basic", minimal: throughput/occupancy/
 #   duration/warp-stalls, ~2-5 passes): NCU_SET=full bash ... for everything.
 # - sgemm.cu runs each kernel across 6 matrix sizes: 128, 256, 512, 1024,
-#   2048, 4096 (index 0-5), and also launches cuBLAS kernels
-#   (ampere_sgemm_*, splitKreduce_kernel) as part of its correctness check
-#   on every size. --launch-count/--launch-skip count ALL of those
-#   launches, not just your kernel's, so this script instead filters by
-#   kernel *name* (-k) to only match this repo's sgemm* kernels, then
-#   skips to size 4096 (index 5, the 6th matching launch) by default -
-#   large enough that occupancy/memory-bound differences between kernels
-#   1-8 actually show up (size 128 is too small to distinguish them).
-#   Override with NCU_LAUNCH_SKIP=0 to profile size 128 instead, or
-#   NCU_LAUNCH_COUNT=6 to profile every size for the matched kernel.
+#   2048, 4096 (index 0-5). For EACH size it launches: 1 correctness-check
+#   launch of your kernel (+ cuBLAS launches) THEN a timing loop of
+#   repeat_times=50 more launches of your kernel (sgemm.cu:92,133-136) -
+#   so that's 51 of your kernel's launches per size, not 1. cuBLAS's
+#   internal kernels (ampere_sgemm_*, splitKreduce_kernel) don't match our
+#   -k filter, but the 51-per-size repeat count still means a naive
+#   "--launch-skip 5" lands inside size 128, not size 4096 (this bit us:
+#   it produced a 1-block grid and ncu's "0.0 full waves" warning for the
+#   2D-blocktiling kernel, whose 128x128 tile means a 128x128 problem is
+#   just a single block).
+#   To land on the FIRST launch of a given size index, skip
+#   (size_index * LAUNCHES_PER_SIZE) prior launches. Default targets size
+#   4096 (index 5): skip = 5 * 51 = 255, landing on that size's
+#   correctness-check launch (same kernel config as the timed ones).
+#   Override NCU_TARGET_SIZE_INDEX (0-5) to target a different size, or
+#   set NCU_LAUNCH_SKIP directly to bypass this calculation entirely.
 
 set -euo pipefail
 
@@ -39,8 +45,12 @@ BUILD_DIR="build"
 OUT_DIR="benchmark_results/ncu"
 NCU_SET="${NCU_SET:-basic}"
 KERNELS="${KERNELS:-1 2 3 4 5 6 7 8}"
+# 1 correctness-check launch + repeat_times(50) timing launches, per size
+# (sgemm.cu:92,100-136). Update this if repeat_times changes upstream.
+LAUNCHES_PER_SIZE=51
 # Sizes are [128, 256, 512, 1024, 2048, 4096] -> index 5 = 4096.
-NCU_LAUNCH_SKIP="${NCU_LAUNCH_SKIP:-5}"
+NCU_TARGET_SIZE_INDEX="${NCU_TARGET_SIZE_INDEX:-5}"
+NCU_LAUNCH_SKIP="${NCU_LAUNCH_SKIP:-$((NCU_TARGET_SIZE_INDEX * LAUNCHES_PER_SIZE))}"
 NCU_LAUNCH_COUNT="${NCU_LAUNCH_COUNT:-1}"
 # All of this repo's custom kernels are named sgemm*; cuBLAS's internal
 # kernels (ampere_sgemm_*, splitKreduce_kernel) do NOT match this anchored
