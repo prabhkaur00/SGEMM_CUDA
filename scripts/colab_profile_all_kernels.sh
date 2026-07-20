@@ -39,18 +39,24 @@ make -j"$(nproc)"
 cd ..
 
 NCU_PATH="$(command -v ncu)"
-NCU_BIN="$NCU_PATH"
+if [ -z "$NCU_PATH" ]; then
+  echo "ERROR: ncu not found on PATH" >&2
+  exit 1
+fi
+
+NCU_CMD=("$NCU_PATH")
 if command -v sudo >/dev/null 2>&1; then
   # sudo drops the caller's PATH, so resolve ncu's absolute path first
   # and preserve the environment (needed for e.g. CUDA_VISIBLE_DEVICES).
-  NCU_BIN="sudo --preserve-env env PATH=\"$PATH\" $NCU_PATH"
+  NCU_CMD=(sudo --preserve-env env "PATH=$PATH" "$NCU_PATH")
 fi
 
+echo "Using ncu binary: $NCU_PATH"
 echo "== Profiling kernels: $KERNELS (ncu --set $NCU_SET) =="
 for k in $KERNELS; do
   echo ""
   echo "-- kernel $k --"
-  $NCU_BIN --set "$NCU_SET" --export "$OUT_DIR/kernel_${k}" --force-overwrite \
+  "${NCU_CMD[@]}" --set "$NCU_SET" --export "$OUT_DIR/kernel_${k}" --force-overwrite \
     "$BUILD_DIR/sgemm" "$k"
 done
 
